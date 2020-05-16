@@ -1,0 +1,66 @@
+stages:
+  - analyze
+  - test
+  - build
+  - deploy
+
+CodeAnalyzeJob:
+  stage: analyze
+  script: powershell -executionpolicy bypass -file "$env:BUILD_SCRIPT_LOCATION\$env:BUILD_SCRIPT_FILE" -ProjectType $env:PROJECT_TYPE -Tasks analyze
+
+CodeTestJob:
+  stage: test
+  script: powershell -executionpolicy bypass -file "$env:BUILD_SCRIPT_LOCATION\$env:BUILD_SCRIPT_FILE" -ProjectType $env:PROJECT_TYPE -Tasks test
+
+PreMergeBuildJob:
+  stage: build
+  script: powershell -executionpolicy bypass -file "$env:BUILD_SCRIPT_LOCATION\$env:BUILD_SCRIPT_FILE" -ProjectType $env:PROJECT_TYPE -Tasks build -tempbuildlocation "$env:TEMP_BUILD_LOCATION" -environment qa
+  except:
+  - master
+  - PROD
+
+BuildQaJob:
+  stage: build
+  script: powershell -executionpolicy bypass -file "$env:BUILD_SCRIPT_LOCATION\$env:BUILD_SCRIPT_FILE" -Tasks build -ProjectType $env:PROJECT_TYPE -tempbuildlocation "$env:TEMP_BUILD_LOCATION" -environment qa
+  only:
+  - master
+
+BuildTestJob:
+  stage: build
+  script: powershell -executionpolicy bypass -file "$env:BUILD_SCRIPT_LOCATION\$env:BUILD_SCRIPT_FILE" -Tasks build -ProjectType $env:PROJECT_TYPE -tempbuildlocation "$env:TEMP_BUILD_LOCATION" -environment test
+  when: manual
+
+
+BuildProdJob:
+  stage: build
+  script: powershell -executionpolicy bypass -file "$env:BUILD_SCRIPT_LOCATION\$env:BUILD_SCRIPT_FILE" -Tasks build -ProjectType $env:PROJECT_TYPE -tempbuildlocation "$env:TEMP_BUILD_LOCATION" -environment prod
+  only:
+  - PROD
+
+DeployQaJob:
+  stage: deploy
+  script:
+   - powershell -executionpolicy bypass -file "$env:BUILD_SCRIPT_LOCATION\$env:BUILD_SCRIPT_FILE" -Tasks deploy -ProjectType $env:PROJECT_TYPE -deploylocations $env:DEPLOY_LOCATIONS_QA -environment qa -deploymentusername $env:DEPLOYMENT_USERNAME -deploymentpassword $env:DEPLOYMENT_PASSWORD -tempbuildlocation "$env:TEMP_BUILD_LOCATION"
+  environment:
+    name: QA
+  only: 
+    - master
+    
+DeployProdJob:
+  stage: deploy
+  script:
+    - powershell -executionpolicy bypass -file "$env:BUILD_SCRIPT_LOCATION\$env:BUILD_SCRIPT_FILE" -Tasks deploy -ProjectType $env:PROJECT_TYPE  -deploylocations $env:DEPLOY_LOCATIONS_PROD -environment prod -deploymentusername $env:DEPLOYMENT_USERNAME -deploymentpassword $env:DEPLOYMENT_PASSWORD -tempbuildlocation "$env:TEMP_BUILD_LOCATION"
+  environment:
+    name: Prod
+  only:
+    - PROD
+
+DeployTestJob:
+  stage: deploy
+  script:
+    - powershell -executionpolicy bypass -file "$env:BUILD_SCRIPT_LOCATION\$env:BUILD_SCRIPT_FILE" -Tasks deploy -ProjectType $env:PROJECT_TYPE -deploylocations $env:DEPLOY_LOCATIONS_TEST -environment test -deploymentusername $env:DEPLOYMENT_USERNAME -deploymentpassword $env:DEPLOYMENT_PASSWORD -tempbuildlocation "$env:TEMP_BUILD_LOCATION"
+  environment:
+    name: Test
+  when: manual
+  only:
+    - master

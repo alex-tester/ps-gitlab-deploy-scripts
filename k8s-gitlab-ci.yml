@@ -1,0 +1,66 @@
+stages:
+  - analyze
+  - test
+  - build
+  - deploy
+
+CodeAnalyzeJob:
+  stage: analyze
+  script: powershell -executionpolicy bypass -file "$env:BUILD_SCRIPT_LOCATION\$env:BUILD_SCRIPT_FILE" -ProjectType $env:PROJECT_TYPE -Tasks analyze  -ContainerRegistryUrl $env:CI_REGISTRY_IMAGE -ProjectName $env:CI_PROJECT_NAME -DockerBuildServer $env:DOCKER_BUILD_SERVER -DockerUserName $env:DOCKER_USERNAME -DockerPassword $env:DOCKER_PASSWORD -KubernetesCluster $env:K8S_CLUSTER_PROD -CommitSHA $env:CI_COMMIT_SHA
+
+CodeTestJob:
+  stage: test
+  script: powershell -executionpolicy bypass -file "$env:BUILD_SCRIPT_LOCATION\$env:BUILD_SCRIPT_FILE" -ProjectType $env:PROJECT_TYPE -Tasks test -ContainerRegistryUrl $env:CI_REGISTRY_IMAGE -ProjectName $env:CI_PROJECT_NAME -DockerBuildServer $env:DOCKER_BUILD_SERVER -DockerUserName $env:DOCKER_USERNAME -DockerPassword $env:DOCKER_PASSWORD -KubernetesCluster $env:K8S_CLUSTER_PROD -CommitSHA $env:CI_COMMIT_SHA
+
+PreMergeBuildJob:
+  stage: build
+  script: powershell -executionpolicy bypass -file "$env:BUILD_SCRIPT_LOCATION\$env:BUILD_SCRIPT_FILE" -ProjectType $env:PROJECT_TYPE -Tasks build -tempbuildlocation "$env:TEMP_BUILD_LOCATION" -environment qa -ContainerRegistryUrl $env:CI_REGISTRY_IMAGE -ProjectName $env:CI_PROJECT_NAME -DockerBuildServer $env:DOCKER_BUILD_SERVER -DockerUserName $env:DOCKER_USERNAME -DockerPassword $env:DOCKER_PASSWORD -KubernetesCluster $env:K8S_CLUSTER_PROD -CommitSHA $env:CI_COMMIT_SHA
+  except:
+  - master
+  - PROD
+
+BuildQaJob:
+  stage: build
+  script: powershell -executionpolicy bypass -file "$env:BUILD_SCRIPT_LOCATION\$env:BUILD_SCRIPT_FILE" -Tasks build -ProjectType $env:PROJECT_TYPE -tempbuildlocation "$env:TEMP_BUILD_LOCATION" -environment qa -ContainerRegistryUrl $env:CI_REGISTRY_IMAGE -ProjectName $env:CI_PROJECT_NAME -DockerBuildServer $env:DOCKER_BUILD_SERVER -DockerUserName $env:DOCKER_USERNAME -DockerPassword $env:DOCKER_PASSWORD -KubernetesCluster $env:K8S_CLUSTER_PROD -CommitSHA $env:CI_COMMIT_SHA
+  only:
+  - master
+
+BuildTestJob:
+  stage: build
+  script: powershell -executionpolicy bypass -file "$env:BUILD_SCRIPT_LOCATION\$env:BUILD_SCRIPT_FILE" -Tasks build -ProjectType $env:PROJECT_TYPE -tempbuildlocation "$env:TEMP_BUILD_LOCATION" -environment test -ContainerRegistryUrl $env:CI_REGISTRY_IMAGE -ProjectName $env:CI_PROJECT_NAME -DockerBuildServer $env:DOCKER_BUILD_SERVER -DockerUserName $env:DOCKER_USERNAME -DockerPassword $env:DOCKER_PASSWORD -KubernetesCluster $env:K8S_CLUSTER_PROD -CommitSHA $env:CI_COMMIT_SHA
+  when: manual
+
+
+BuildProdJob:
+  stage: build
+  script: powershell -executionpolicy bypass -file "$env:BUILD_SCRIPT_LOCATION\$env:BUILD_SCRIPT_FILE" -Tasks build -ProjectType $env:PROJECT_TYPE -tempbuildlocation "$env:TEMP_BUILD_LOCATION" -environment prod -ContainerRegistryUrl $env:CI_REGISTRY_IMAGE -ProjectName $env:CI_PROJECT_NAME -DockerBuildServer $env:DOCKER_BUILD_SERVER -DockerUserName $env:DOCKER_USERNAME -DockerPassword $env:DOCKER_PASSWORD -KubernetesCluster $env:K8S_CLUSTER_PROD -CommitSHA $env:CI_COMMIT_SHA
+  only:
+  - PROD
+
+DeployQaJob:
+  stage: deploy
+  script:
+   - powershell -executionpolicy bypass -file "$env:BUILD_SCRIPT_LOCATION\$env:BUILD_SCRIPT_FILE" -Tasks deploy -ProjectType $env:PROJECT_TYPE -environment qa -deploymentusername $env:DEPLOYMENT_USERNAME -deploymentpassword $env:DEPLOYMENT_PASSWORD -tempbuildlocation "$env:TEMP_BUILD_LOCATION" -ContainerRegistryUrl $env:CI_REGISTRY_IMAGE -ProjectName $env:CI_PROJECT_NAME -DockerBuildServer $env:DOCKER_BUILD_SERVER -DockerUserName $env:DOCKER_USERNAME -DockerPassword $env:DOCKER_PASSWORD -KubernetesCluster $env:K8S_CLUSTER_TEST -CommitSHA $env:CI_COMMIT_SHA
+  environment:
+    name: QA
+  only: 
+    - master
+    
+DeployProdJob:
+  stage: deploy
+  script:
+    - powershell -executionpolicy bypass -file "$env:BUILD_SCRIPT_LOCATION\$env:BUILD_SCRIPT_FILE" -Tasks deploy -ProjectType $env:PROJECT_TYPE -environment prod -deploymentusername $env:DEPLOYMENT_USERNAME -deploymentpassword $env:DEPLOYMENT_PASSWORD -tempbuildlocation "$env:TEMP_BUILD_LOCATION" -ContainerRegistryUrl $env:CI_REGISTRY_IMAGE -ProjectName $env:CI_PROJECT_NAME -DockerBuildServer $env:DOCKER_BUILD_SERVER -DockerUserName $env:DOCKER_USERNAME -DockerPassword $env:DOCKER_PASSWORD -KubernetesCluster $env:K8S_CLUSTER_PROD -CommitSHA $env:CI_COMMIT_SHA
+  environment:
+    name: Prod
+  only:
+    - PROD
+
+DeployTestJob:
+  stage: deploy
+  script:
+    - powershell -executionpolicy bypass -file "$env:BUILD_SCRIPT_LOCATION\$env:BUILD_SCRIPT_FILE" -Tasks deploy -ProjectType $env:PROJECT_TYPE -environment test -deploymentusername $env:DEPLOYMENT_USERNAME -deploymentpassword $env:DEPLOYMENT_PASSWORD -tempbuildlocation "$env:TEMP_BUILD_LOCATION" -ContainerRegistryUrl $env:CI_REGISTRY_IMAGE -ProjectName $env:CI_PROJECT_NAME -DockerBuildServer $env:DOCKER_BUILD_SERVER -DockerUserName $env:DOCKER_USERNAME -DockerPassword $env:DOCKER_PASSWORD -KubernetesCluster $env:K8S_CLUSTER_TEST -CommitSHA $env:CI_COMMIT_SHA
+  environment:
+    name: Test
+  when: manual
+  only:
+    - master
